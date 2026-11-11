@@ -154,7 +154,10 @@ function imgSrc(s){
   }
   s=String(s==null?'':s);
   if(/^(data:|https?:|blob:|\/)/i.test(s))return s;
-  return siteBase()+s.replace(/^\.\//,'')+'?v='+encodeURIComponent(String(s).split('/').pop()||'');
+  const p=s.replace(/^\.\//,'');
+  const c=cfg();
+  if(c.owner&&c.repo)return 'https://raw.githubusercontent.com/'+c.owner+'/'+c.repo+'/'+BRANCH+'/'+p;
+  return siteBase()+p;
 }
 function lsGet(k){return localStorage.getItem('zs_'+k)||''}
 function cfg(){
@@ -243,11 +246,13 @@ $('#list').addEventListener('click',e=>{
 });
 document.addEventListener('error',e=>{
   const im=e.target;
-  if(!im||im.tagName!=='IMG'||im.dataset.retried)return;
+  if(!im||im.tagName!=='IMG')return;
   const raw=im.getAttribute('src')||'';
   if(/^data:/.test(raw))return;
-  im.dataset.retried='1';
-  im.src=raw.split('?')[0]+'?t='+Date.now();
+  const n=Number(im.dataset.retried||'0');
+  if(n>=3)return;
+  im.dataset.retried=String(n+1);
+  setTimeout(()=>{im.src=raw.split('?')[0]+'?t='+Date.now()},1200*(n+1));
 },true);
 $('#search').addEventListener('input',render);
 $('#addBtn').onclick=()=>openEditor(null);
