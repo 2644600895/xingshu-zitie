@@ -1,0 +1,6 @@
+﻿.push-pat
+*.pat
+backup.json
+Thumbs.db
+.DS_Store
+__pycache__/

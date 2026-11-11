@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>行书写法 · 字帖</title>
+<style>
+:root{--bg:#f6f3ec;--card:#fff;--ink:#2b2620;--sub:#8a8073;--line:#e6dfd3;--accent:#8c5a3c;--accent2:#b9865f}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;padding:0 0 92px}
+header{position:sticky;top:0;z-index:20;background:rgba(246,243,236,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:14px 16px 11px}
+h1{font-size:18px;margin:0 0 10px;letter-spacing:2px;font-weight:600}
+.searchbar{display:flex;gap:8px}
+#search{flex:1;min-width:0;font-size:16px;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;outline:none}
+#search:focus{border-color:var(--accent2)}
+.btn{border:0;border-radius:10px;padding:11px 16px;font-size:15px;background:var(--accent);color:#fff;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+.btn.ghost{background:#fff;color:var(--accent);border:1px solid var(--line)}
+.btn.sm{padding:8px 12px;font-size:13px}
+.btn.danger{background:#b4463a}
+.btn:disabled{opacity:.5}
+.wrap{max-width:760px;margin:0 auto;padding:14px 16px}
+.hint{color:var(--sub);font-size:13px;line-height:1.7;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card .zi{font-size:30px;font-weight:600;text-align:center;margin-bottom:6px;font-family:"KaiTi","STKaiti","Kaiti SC",serif}
+.row{margin-top:8px}
+.row .lab{font-size:12px;color:var(--sub);margin-bottom:5px;display:flex;justify-content:space-between}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap}
+.thumbs img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:#faf8f4}
+.thumbs .none{font-size:12px;color:#c9c0b2;padding:16px 0}
+.card .ops{display:flex;gap:6px;margin-top:10px}
+.empty{text-align:center;color:var(--sub);padding:50px 0;font-size:14px}
+#tools{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(246,243,236,.97);border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;flex-direction:column;padding:16px}
+.overlay.show{display:flex}
+#lbImg{max-width:94vw;max-height:74vh;object-fit:contain;border-radius:6px}
+.overlay .bar{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center}
+.overlay .bar .btn{background:rgba(255,255,255,.18)}
+.overlay .tip{color:#bbb;font-size:12px;margin-top:10px;text-align:center}
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+.modal.show{display:flex}
+.sheet{background:var(--card);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 16px 26px;max-height:92vh;overflow:auto}
+.sheet h2{font-size:17px;margin:0 0 10px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--sub);margin-bottom:6px}
+.field input[type=text]{width:100%;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
+.field input[type=text]:disabled{background:#f2efe9;color:var(--sub)}
+.filelist{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.filelist .item{position:relative}
+.filelist img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.filelist .x{position:absolute;top:-6px;right:-6px;background:#b4463a;color:#fff;border:0;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;cursor:pointer;padding:0}
+input[type=file]{font-size:13px;width:100%}
+.msg{color:#b4463a;font-size:13px;min-height:18px;margin:0 0 8px}
+.srcbox{background:#faf8f4;border:1px dashed var(--line);border-radius:10px;padding:10px;font-size:12px;color:var(--sub);line-height:1.7;margin-top:12px}
+@media(min-width:600px){.modal{align-items:center}.sheet{border-radius:18px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>行书写法 · 字帖</h1>
+  <div class="searchbar">
+    <input id="search" type="search" placeholder="输入一个汉字，如：永" autocomplete="off">
+    <button class="btn" id="addBtn">＋ 添加</button>
+  </div>
+</header>
+<div class="wrap">
+  <p class="hint" id="status">正在载入……</p>
+  <div class="grid" id="list"></div>
+  <div class="empty" id="empty" style="display:none">还没有收录，点右上角「＋ 添加」开始。</div>
+</div>
+<div id="tools">
+  <button class="btn ghost sm" id="reloadBtn">重新载入</button>
+  <button class="btn ghost sm" id="exportBtn">导出备份</button>
+  <button class="btn ghost sm" id="settingsBtn">设置</button>
+</div>
+
+<div class="overlay" id="lightbox">
+  <img id="lbImg" src="" alt="放大图">
+  <div class="bar">
+    <a class="btn" id="lbDownload" href="#" download>下载 / 保存图片</a>
+    <button class="btn" id="lbClose">关闭</button>
+  </div>
+  <p class="tip">手机端若下载无效，请长按图片选择「保存图片」</p>
+</div>
+
+<div class="modal" id="editor">
+  <div class="sheet">
+    <h2 id="edTitle">添加文字</h2>
+    <div class="field">
+      <label>文字（唯一 key，必填，不可为空）</label>
+      <input type="text" id="edChar" maxlength="2" placeholder="单个汉字">
+    </div>
+    <div class="field"><label>行书图片</label><input type="file" id="edX" accept="image/*" multiple><div class="filelist" id="pvX"></div></div>
+    <div class="field"><label>草书图片</label><input type="file" id="edC" accept="image/*" multiple><div class="filelist" id="pvC"></div></div>
+    <div class="field"><label>繁体图片</label><input type="file" id="edF" accept="image/*" multiple><div class="filelist" id="pvF"></div></div>
+    <p class="msg" id="edMsg"></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="edSave">保存</button>
+      <button class="btn ghost" id="edCancel">取消</button>
+      <button class="btn danger" id="edDelete" style="margin-left:auto">删除该字</button>
+    </div>
+    <div class="srcbox">保存后会直接提交到 GitHub 仓库的 <code>data.json</code> 与 <code>images/</code>，所有设备打开同一页面即可看到。删除只移除索引里的引用，不删除已上传的图片文件。</div>
+  </div>
+</div>
+
+<div class="modal" id="settings">
+  <div class="sheet">
+    <h2>设置（仅本地调试用）</h2>
+    <p class="hint">部署到 GitHub Pages 后无需填写，token 由 GitHub Actions 自动注入。只有在本机预览、想试用增删改时才在这里填。</p>
+    <div class="field"><label>GitHub 用户名 / owner</label><input type="text" id="setOwner" placeholder="例如 2644600895"></div>
+    <div class="field"><label>仓库名 / repo</label><input type="text" id="setRepo" placeholder="例如 xingshu"></div>
+    <div class="field"><label>Personal Access Token</label><input type="text" id="setToken" placeholder="fine-grained PAT，只给该仓库 Contents 读写"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="setSave">保存设置</button>
+      <button class="btn ghost" id="setCancel">取消</button>
+    </div>
+    <div class="srcbox">这三项只存在本浏览器的 localStorage，不会提交到仓库。生产环境请改用仓库 Secret <code>GH_PAT</code>。</div>
+  </div>
+</div>
+
+<script>
+const TYPES=[['x','行书'],['c','草书'],['f','繁体']];
+const $=s=>document.querySelector(s);
+const RAW_TOKEN='__GH_TOKEN__';
+const BRANCH='main';
+let chars=[],editing=null,draft={x:[],c:[],f:[]},busy=false;
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function lsGet(k){return localStorage.getItem('zs_'+k)||''}
+function cfg(){
+  const h=location.hostname;
+  let owner='',repo='';
+  if(h.endsWith('.github.io')){
+    owner=h.slice(0,-'.github.io'.length);
+    repo=location.pathname.split('/').filter(Boolean)[0]||(owner+'.github.io');
+  }
+  return {
+    owner:owner||lsGet('owner'),
+    repo:repo||lsGet('repo'),
+    token:(RAW_TOKEN.charAt(0)!=='_')?RAW_TOKEN:lsGet('token')
+  };
+}
+function apiBase(c){return 'https://api.github.com/repos/'+c.owner+'/'+c.repo+'/contents/'}
+function hdr(c){return {'Accept':'application/vnd.github+json','Authorization':'Bearer '+c.token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}}
+async function ghGet(path,c){
+  const r=await fetch(apiBase(c)+path+'?ref='+BRANCH+'&t='+Date.now(),{headers:hdr(c)});
+  if(!r.ok)throw new Error('读取 '+path+' 失败：'+r.status);
+  return r.json();
+}
+async function ghPut(path,c,content,message,sha){
+  const body={message:message,content:content,branch:BRANCH};
+  if(sha)body.sha=sha;
+  const r=await fetch(apiBase(c)+path,{method:'PUT',headers:hdr(c),body:JSON.stringify(body)});
+  if(!r.ok){const t=await r.text();throw new Error('提交 '+path+' 失败：'+r.status+' '+t.slice(0,160))}
+  return r.json();
+}
+function b64(s){return btoa(unescape(encodeURIComponent(s)))}
+function unb64(s){return decodeURIComponent(escape(atob(String(s).replace(/\s/g,''))))}
+
+function setBusy(v){
+  busy=v;
+  ['#addBtn','#reloadBtn','#settingsBtn','#edSave','#edDelete'].forEach(s=>{const e=$(s);if(e)e.disabled=v});
+}
+function say(t){$('#status').textContent=t}
+
+async function load(){
+  const c=cfg();
+  if(c.owner&&c.repo&&c.token){
+    try{
+      const info=await ghGet('data.json',c);
+      const j=JSON.parse(unb64(info.content));
+      chars=j.chars||[];
+      render();say('已从仓库载入 '+chars.length+' 个字。增删改会直接提交回仓库。');return;
+    }catch(e){/* 降级到同源文件 */}
+  }
+  try{
+    const r=await fetch('data.json',{cache:'no-store'});
+    if(!r.ok)throw 0;
+    const j=await r.json();chars=j.chars||[];
+    render();
+    say('已载入 '+chars.length+' 个字（只读）。'+(c.token?'':'如需增删改，部署到 GitHub Pages 后自动可用，或在「设置」里填仓库与 PAT。'));
+  }catch(e){
+    chars=[];render();
+    say('读取 data.json 失败：请通过 HTTP 打开（不要直接双击 index.html），或点「重新载入」。');
+  }
+}
+
+function render(){
+  const q=$('#search').value.trim();
+  const arr=chars.filter(o=>!q||String(o.char).includes(q)).sort((a,b)=>String(a.char).localeCompare(String(b.char),'zh'));
+  $('#empty').style.display=arr.length?'none':'block';
+  $('#list').innerHTML=arr.map(o=>{
+    const rows=TYPES.map(([k,lab])=>{
+      const imgs=o[k]||[];
+      const inner=imgs.length
+        ? imgs.map(it=>`<img src="${esc(it.src)}" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
+        : '<span class="none">未收录</span>';
+      return `<div class="row"><div class="lab"><span>${lab}</span><span>${imgs.length} 张</span></div><div class="thumbs">${inner}</div></div>`;
+    }).join('');
+    return `<div class="card"><div class="zi">${esc(o.char)}</div>${rows}<div class="ops"><button class="btn ghost sm" data-edit="${esc(o.char)}">编辑</button></div></div>`;
+  }).join('');
+}
+
+$('#list').addEventListener('click',e=>{
+  const t=e.target;
+  if(t.tagName==='IMG'){openLight(t.src,t.getAttribute('data-ch'));return}
+  const b=t.closest('[data-edit]');if(b)openEditor(b.getAttribute('data-edit'));
+});
+$('#search').addEventListener('input',render);
+$('#addBtn').onclick=()=>openEditor(null);
+
+function openLight(src,ch){
+  $('#lbImg').src=src;
+  const a=$('#lbDownload');a.href=src;a.download=(ch||'字')+'_写法.jpg';
+  $('#lightbox').classList.add('show');
+}
+$('#lbClose').onclick=()=>$('#lightbox').classList.remove('show');
+$('#lightbox').onclick=e=>{if(e.target.id==='lightbox')$('#lightbox').classList.remove('show')};
+
+function fileToData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)})}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+
+function openEditor(ch){
+  editing=ch||null;
+  const o=ch?chars.find(x=>x.char===ch):null;
+  draft={x:o?[...(o.x||[])]:[],c:o?[...(o.c||[])]:[],f:o?[...(o.f||[])]:[]};
+  $('#edTitle').textContent=ch?'编辑：'+ch:'添加文字';
+  $('#edChar').value=ch||'';$('#edChar').disabled=!!ch;
+  $('#edMsg').textContent='';
+  ['x','c','f'].forEach(k=>{$('#ed'+k.toUpperCase()).value=''});
+  renderDraft();
+  $('#edDelete').style.display=ch?'inline-block':'none';
+  $('#editor').classList.add('show');
+}
+function renderDraft(){
+  ['x','c','f'].forEach(k=>{
+    $('#pv'+k.toUpperCase()).innerHTML=draft[k].map((it,i)=>
+      `<div class="item"><img src="${esc(it.src)}" alt=""><button class="x" data-k="${k}" data-i="${i}" type="button">×</button></div>`
+    ).join('');
+  });
+}
+['x','c','f'].forEach(k=>{
+  $('#ed'+k.toUpperCase()).addEventListener('change',async e=>{
+    for(const f of e.target.files){draft[k].push({src:await fileToData(f)})}
+    e.target.value='';renderDraft();
+  });
+  $('#pv'+k.toUpperCase()).addEventListener('click',e=>{
+    const b=e.target.closest('.x');if(!b)return;
+    draft[b.dataset.k].splice(Number(b.dataset.i),1);renderDraft();
+  });
+});
+$('#edCancel').onclick=()=>$('#editor').classList.remove('show');
+
+async function saveAll(){
+  const c=cfg();
+  if(!c.owner||!c.repo||!c.token){
+    alert('还没有配置仓库或 token。\n部署到 GitHub Pages 后会自动生效；本机预览请点「设置」填写 owner / repo / PAT。');
+    return false;
+  }
+  setBusy(true);say('正在提交到 GitHub 仓库……');
+  try{
+    const uploads=[],stamp=Date.now();let n=0;
+    const next=chars.map(o=>{
+      const rec={char:o.char,x:[],c:[],f:[]};
+      TYPES.forEach(([k])=>{
+        (o[k]||[]).forEach(it=>{
+          if(!it||!it.src)return;
+          const s=String(it.src);
+          if(s.startsWith('data:')){
+            const m=s.match(/^data:image\/(\w+);base64,/);
+            const ext=(m&&m[1])||'jpeg';
+            const file='img_'+stamp+'_'+(++n)+'.'+(ext==='jpeg'?'jpg':ext);
+            uploads.push({path:'images/'+file,content:s.split(',')[1]});
+            rec[k].push({src:'images/'+file});
+          }else{
+            rec[k].push({src:s});
+          }
+        });
+      });
+      return rec;
+    });
+    for(const u of uploads){await ghPut(u.path,c,u.content,'add 字帖图片 '+u.path.split('/').pop())}
+    let sha='';
+    try{const info=await ghGet('data.json',c);sha=info.sha}catch(e){}
+    await ghPut('data.json',c,b64(JSON.stringify({chars:next},null,2)),'update 字帖索引',sha);
+    chars=next;render();
+    say('已提交到仓库，共 '+chars.length+' 个字。其他设备稍等 1~2 分钟（Pages 重新部署）即可看到。');
+    return true;
+  }catch(e){
+    say('提交失败，改动已回滚。');
+    alert('提交失败：'+e.message+'\n\n请检查：仓库 owner / repo 是否正确；PAT 是否有该仓库 Contents 读写权限；分支是否为 '+BRANCH+' 且未开保护。');
+    return false;
+  }finally{setBusy(false)}
+}
+
+$('#edSave').onclick=async()=>{
+  if(busy)return;
+  const ch=($('#edChar').value||'').trim();
+  if(!ch){$('#edMsg').textContent='文字不能为空';return}
+  if(!editing&&chars.some(o=>o.char===ch)){$('#edMsg').textContent='这个字已存在，请直接点它的「编辑」';return}
+  const snap=clone(chars),rec={char:ch,x:draft.x,c:draft.c,f:draft.f},i=chars.findIndex(o=>o.char===ch);
+  if(i>=0)chars[i]=rec;else chars.push(rec);
+  render();
+  if(await saveAll()){$('#editor').classList.remove('show')}
+  else{chars=snap;render()}
+};
+$('#edDelete').onclick=async()=>{
+  if(busy||!editing)return;
+  if(!confirm('确定删除「'+editing+'」及其全部图片引用？'))return;
+  const snap=clone(chars);
+  chars=chars.filter(o=>o.char!==editing);render();
+  if(await saveAll()){$('#editor').classList.remove('show')}
+  else{chars=snap;render()}
+};
+
+$('#reloadBtn').onclick=()=>{if(!busy)load()};
+function downloadJSON(obj,name){
+  const b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  const u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
+}
+$('#exportBtn').onclick=()=>downloadJSON({version:2,chars:chars},'backup.json');
+
+$('#settingsBtn').onclick=()=>{
+  $('#setOwner').value=lsGet('owner');$('#setRepo').value=lsGet('repo');$('#setToken').value=lsGet('token');
+  $('#settings').classList.add('show');
+};
+$('#setCancel').onclick=()=>$('#settings').classList.remove('show');
+$('#setSave').onclick=()=>{
+  localStorage.setItem('zs_owner',$('#setOwner').value.trim());
+  localStorage.setItem('zs_repo',$('#setRepo').value.trim());
+  localStorage.setItem('zs_token',$('#setToken').value.trim());
+  $('#settings').classList.remove('show');load();
+};
+
+load();
+</script>
+</body>
+</html>
