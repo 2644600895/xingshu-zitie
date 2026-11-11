@@ -22,7 +22,7 @@ h1{font-size:18px;margin:0 0 10px;letter-spacing:2px;font-weight:600}
 .hint{color:var(--sub);font-size:13px;line-height:1.7;margin:0 0 14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.card .zi{font-size:30px;font-weight:600;text-align:center;margin-bottom:6px;font-family:"KaiTi","STKaiti","Kaiti SC",serif}
+.card .zi{font-size:30px;font-weight:600;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:6px;cursor:pointer;font-family:"KaiTi","STKaiti","Kaiti SC",serif}
 .row{margin-top:8px}
 .row .lab{font-size:12px;color:var(--sub);margin-bottom:5px;display:flex;justify-content:space-between}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap}
@@ -31,12 +31,22 @@ h1{font-size:18px;margin:0 0 10px;letter-spacing:2px;font-weight:600}
 .card .ops{display:flex;gap:6px;margin-top:10px}
 .empty{text-align:center;color:var(--sub);padding:50px 0;font-size:14px}
 #tools{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(246,243,236,.97);border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;flex-direction:column;padding:16px}
+.overlay{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;flex-direction:column;padding:16px}
 .overlay.show{display:flex}
 #lbImg{max-width:94vw;max-height:74vh;object-fit:contain;border-radius:6px}
 .overlay .bar{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center}
 .overlay .bar .btn{background:rgba(255,255,255,.18)}
 .overlay .tip{color:#bbb;font-size:12px;margin-top:10px;text-align:center}
+.pvmask{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px}
+.pvmask.show{display:flex}
+.pvcard{background:var(--card);border-radius:18px;padding:18px 16px;max-width:560px;width:100%;max-height:88vh;overflow:auto}
+.pvcard h3{margin:0 0 14px;text-align:center;font-size:26px;font-family:"KaiTi","STKaiti","Kaiti SC",serif}
+.pvsec{margin-bottom:14px}
+.pvsec .lab{font-size:13px;color:var(--sub);margin-bottom:7px}
+.pvimgs{display:flex;gap:8px;flex-wrap:wrap}
+.pvimgs img{width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:#faf8f4}
+.pvimgs .none{font-size:12px;color:#c9c0b2;padding:14px 0}
+.pvmask .closebar{text-align:center;margin-top:6px}
 .modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
 .modal.show{display:flex}
 .sheet{background:var(--card);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 16px 26px;max-height:92vh;overflow:auto}
@@ -83,6 +93,14 @@ input[type=file]{font-size:13px;width:100%}
   <p class="tip">手机端若下载无效，请长按图片选择「保存图片」</p>
 </div>
 
+<div class="pvmask" id="previewBox">
+  <div class="pvcard">
+    <h3 id="pvChar"></h3>
+    <div id="pvBody"></div>
+    <div class="closebar"><button class="btn" id="pvClose">关闭</button></div>
+  </div>
+</div>
+
 <div class="modal" id="editor">
   <div class="sheet">
     <h2 id="edTitle">添加文字</h2>
@@ -126,6 +144,8 @@ const BRANCH='main';
 let chars=[],editing=null,draft={x:[],c:[],f:[]},busy=false;
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function siteBase(){let p=location.pathname;if(!p.endsWith('/')){const last=p.slice(p.lastIndexOf('/')+1);p=/\.[a-z0-9]+$/i.test(last)?p.slice(0,p.lastIndexOf('/')+1):p+'/'}if(!p.endsWith('/'))p='/';return p}
+function imgSrc(s){s=String(s==null?'':s);if(/^(data:|https?:|blob:|\/)/i.test(s))return s;return siteBase()+s.replace(/^\.\//,'')}
 function lsGet(k){return localStorage.getItem('zs_'+k)||''}
 function cfg(){
   const h=location.hostname;
@@ -161,7 +181,11 @@ function setBusy(v){
   busy=v;
   ['#addBtn','#reloadBtn','#settingsBtn','#edSave','#edDelete'].forEach(s=>{const e=$(s);if(e)e.disabled=v});
 }
-function say(t){$('#status').textContent=t}
+function say(t){const e=$('#status');e.textContent=t;e.style.display=t?'block':'none'}
+function sayOnce(t){
+  if(localStorage.getItem('zs_status_shown')){say('');return}
+  localStorage.setItem('zs_status_shown','1');say(t);
+}
 
 async function load(){
   const c=cfg();
@@ -170,7 +194,7 @@ async function load(){
       const info=await ghGet('data.json',c);
       const j=JSON.parse(unb64(info.content));
       chars=j.chars||[];
-      render();say('已从仓库载入 '+chars.length+' 个字。增删改会直接提交回仓库。');return;
+      render();sayOnce('已从仓库载入 '+chars.length+' 个字。增删改会直接提交回仓库。');return;
     }catch(e){/* 降级到同源文件 */}
   }
   try{
@@ -193,16 +217,17 @@ function render(){
     const rows=TYPES.map(([k,lab])=>{
       const imgs=o[k]||[];
       const inner=imgs.length
-        ? imgs.map(it=>`<img src="${esc(it.src)}" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
+        ? imgs.map(it=>`<img src="${esc(imgSrc(it.src))}" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
         : '<span class="none">未收录</span>';
       return `<div class="row"><div class="lab"><span>${lab}</span><span>${imgs.length} 张</span></div><div class="thumbs">${inner}</div></div>`;
     }).join('');
-    return `<div class="card"><div class="zi">${esc(o.char)}</div>${rows}<div class="ops"><button class="btn ghost sm" data-edit="${esc(o.char)}">编辑</button></div></div>`;
+    return `<div class="card"><div class="zi" data-char="${esc(o.char)}">${esc(o.char)}</div>${rows}<div class="ops"><button class="btn ghost sm" data-edit="${esc(o.char)}">编辑</button></div></div>`;
   }).join('');
 }
 
 $('#list').addEventListener('click',e=>{
   const t=e.target;
+  const z=t.closest('.zi');if(z){openPreview(z.getAttribute('data-char'));return}
   if(t.tagName==='IMG'){openLight(t.src,t.getAttribute('data-ch'));return}
   const b=t.closest('[data-edit]');if(b)openEditor(b.getAttribute('data-edit'));
 });
@@ -210,12 +235,31 @@ $('#search').addEventListener('input',render);
 $('#addBtn').onclick=()=>openEditor(null);
 
 function openLight(src,ch){
+  $('#previewBox').classList.remove('show');
   $('#lbImg').src=src;
   const a=$('#lbDownload');a.href=src;a.download=(ch||'字')+'_写法.jpg';
   $('#lightbox').classList.add('show');
 }
 $('#lbClose').onclick=()=>$('#lightbox').classList.remove('show');
 $('#lightbox').onclick=e=>{if(e.target.id==='lightbox')$('#lightbox').classList.remove('show')};
+
+function openPreview(ch){
+  const o=chars.find(x=>x.char===ch);if(!o)return;
+  $('#pvChar').textContent=ch;
+  $('#pvBody').innerHTML=TYPES.map(([k,lab])=>{
+    const imgs=o[k]||[];
+    const inner=imgs.length
+      ? imgs.map(it=>`<img src="${esc(imgSrc(it.src))}" alt="${lab}">`).join('')
+      : '<span class="none">未收录</span>';
+    return `<div class="pvsec"><div class="lab">${lab}（${imgs.length} 张，点图片可放大保存）</div><div class="pvimgs">${inner}</div></div>`;
+  }).join('');
+  $('#previewBox').classList.add('show');
+}
+$('#pvBody').addEventListener('click',e=>{
+  if(e.target.tagName==='IMG')openLight(e.target.src,$('#pvChar').textContent);
+});
+$('#pvClose').onclick=()=>$('#previewBox').classList.remove('show');
+$('#previewBox').onclick=e=>{if(e.target.id==='previewBox')$('#previewBox').classList.remove('show')};
 
 function fileToData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)})}
 function clone(o){return JSON.parse(JSON.stringify(o))}
@@ -235,7 +279,7 @@ function openEditor(ch){
 function renderDraft(){
   ['x','c','f'].forEach(k=>{
     $('#pv'+k.toUpperCase()).innerHTML=draft[k].map((it,i)=>
-      `<div class="item"><img src="${esc(it.src)}" alt=""><button class="x" data-k="${k}" data-i="${i}" type="button">×</button></div>`
+      `<div class="item"><img src="${esc(imgSrc(it.src))}" alt=""><button class="x" data-k="${k}" data-i="${i}" type="button">×</button></div>`
     ).join('');
   });
 }
