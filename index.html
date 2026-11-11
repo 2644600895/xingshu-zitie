@@ -147,7 +147,15 @@ let chars=[],editing=null,draft={x:[],c:[],f:[]},busy=false;
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function siteBase(){let p=location.pathname;if(!p.endsWith('/')){const last=p.slice(p.lastIndexOf('/')+1);p=/\.[a-z0-9]+$/i.test(last)?p.slice(0,p.lastIndexOf('/')+1):p+'/'}if(!p.endsWith('/'))p='/';return p}
-function imgSrc(s){s=String(s==null?'':s);if(/^(data:|https?:|blob:|\/)/i.test(s))return s;return siteBase()+s.replace(/^\.\//,'')}
+function imgSrc(s){
+  if(s&&typeof s==='object'){
+    if(s.local)return s.local;
+    s=s.src;
+  }
+  s=String(s==null?'':s);
+  if(/^(data:|https?:|blob:|\/)/i.test(s))return s;
+  return siteBase()+s.replace(/^\.\//,'')+'?v='+encodeURIComponent(String(s).split('/').pop()||'');
+}
 function lsGet(k){return localStorage.getItem('zs_'+k)||''}
 function cfg(){
   const h=location.hostname;
@@ -219,7 +227,7 @@ function render(){
     const rows=TYPES.map(([k,lab])=>{
       const imgs=o[k]||[];
       const inner=imgs.length
-        ? imgs.map(it=>`<img src="${esc(imgSrc(it.src))}" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
+        ? imgs.map(it=>`<img src="${esc(imgSrc(it))}" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
         : '<span class="none">未收录</span>';
       return `<div class="row"><div class="lab"><span>${lab}</span><span>${imgs.length} 张</span></div><div class="thumbs">${inner}</div></div>`;
     }).join('');
@@ -233,6 +241,14 @@ $('#list').addEventListener('click',e=>{
   if(t.tagName==='IMG'){openLight(t.src,t.getAttribute('data-ch'));return}
   const b=t.closest('[data-edit]');if(b)openEditor(b.getAttribute('data-edit'));
 });
+document.addEventListener('error',e=>{
+  const im=e.target;
+  if(!im||im.tagName!=='IMG'||im.dataset.retried)return;
+  const raw=im.getAttribute('src')||'';
+  if(/^data:/.test(raw))return;
+  im.dataset.retried='1';
+  im.src=raw.split('?')[0]+'?t='+Date.now();
+},true);
 $('#search').addEventListener('input',render);
 $('#addBtn').onclick=()=>openEditor(null);
 
@@ -251,7 +267,7 @@ function openPreview(ch){
   $('#pvBody').innerHTML=TYPES.map(([k,lab])=>{
     const imgs=o[k]||[];
     const inner=imgs.length
-      ? imgs.map(it=>`<img src="${esc(imgSrc(it.src))}" alt="${lab}">`).join('')
+      ? imgs.map(it=>`<img src="${esc(imgSrc(it))}" alt="${lab}">`).join('')
       : '<span class="none">未收录</span>';
     return `<div class="pvsec"><div class="lab">${lab}（${imgs.length} 张，点图片可放大保存）</div><div class="pvimgs">${inner}</div></div>`;
   }).join('');
@@ -281,7 +297,7 @@ function openEditor(ch){
 function renderDraft(){
   ['x','c','f'].forEach(k=>{
     $('#pv'+k.toUpperCase()).innerHTML=draft[k].map((it,i)=>
-      `<div class="item"><img src="${esc(imgSrc(it.src))}" alt=""><button class="x" data-k="${k}" data-i="${i}" type="button">×</button></div>`
+      `<div class="item"><img src="${esc(imgSrc(it))}" alt=""><button class="x" data-k="${k}" data-i="${i}" type="button">×</button></div>`
     ).join('');
   });
 }
@@ -312,12 +328,12 @@ async function saveAll(){
         (o[k]||[]).forEach(it=>{
           if(!it||!it.src)return;
           const s=String(it.src);
-          if(s.startsWith('data:')){
+      if(s.startsWith('data:')){
             const m=s.match(/^data:image\/(\w+);base64,/);
             const ext=(m&&m[1])||'jpeg';
             const file='img_'+stamp+'_'+(++n)+'.'+(ext==='jpeg'?'jpg':ext);
             uploads.push({path:'images/'+file,content:s.split(',')[1]});
-            rec[k].push({src:'images/'+file});
+            rec[k].push({src:'images/'+file,local:s});
           }else{
             rec[k].push({src:s});
           }
@@ -328,7 +344,12 @@ async function saveAll(){
     for(const u of uploads){await ghPut(u.path,c,u.content,'add 字帖图片 '+u.path.split('/').pop())}
     let sha='';
     try{const info=await ghGet('data.json',c);sha=info.sha}catch(e){}
-    await ghPut('data.json',c,b64(JSON.stringify({chars:next},null,2)),'update 字帖索引',sha);
+    const persisted={chars:next.map(o=>{
+      const r={char:o.char,x:[],c:[],f:[]};
+      TYPES.forEach(([k])=>{r[k]=(o[k]||[]).map(it=>({src:it.src}))});
+      return r;
+    })};
+    await ghPut('data.json',c,b64(JSON.stringify(persisted,null,2)),'update 字帖索引',sha);
     chars=next;render();
     say('已提交到仓库，共 '+chars.length+' 个字。其他设备稍等 1~2 分钟（Pages 重新部署）即可看到。');
     return true;
