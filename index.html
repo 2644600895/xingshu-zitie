@@ -176,7 +176,7 @@ function cfg(){
 function apiBase(c){return 'https://api.github.com/repos/'+c.owner+'/'+c.repo+'/contents/'}
 function hdr(c){return {'Accept':'application/vnd.github+json','Authorization':'Bearer '+c.token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}}
 async function ghGet(path,c){
-  const r=await fetch(apiBase(c)+path+'?ref='+BRANCH+'&t='+Date.now(),{headers:hdr(c)});
+  const r=await fetch(apiBase(c)+path+'?ref='+BRANCH,{headers:hdr(c),cache:'no-cache'});
   if(!r.ok)throw new Error('读取 '+path+' 失败：'+r.status);
   return r.json();
 }
@@ -200,21 +200,45 @@ function sayOnce(t){
   localStorage.setItem('zs_status_shown','1');say(t);
 }
 
+function cacheChars(j){
+  try{localStorage.setItem('zs_chars_cache',JSON.stringify(j))}catch(e){}
+}
+function readCache(){
+  try{
+    const s=localStorage.getItem('zs_chars_cache');
+    if(!s)return null;
+    const j=JSON.parse(s);
+    return (j&&Array.isArray(j.chars))?j.chars:null;
+  }catch(e){return null}
+}
 async function load(){
   const c=cfg();
+  // 1) 先用本地缓存立即渲染，API 慢/失败也不挡首屏
+  const cached=readCache();
+  if(cached&&cached.length){
+    chars=cached;render();
+    say('已载入 '+chars.length+' 个字（本地缓存），正在后台同步……');
+  }else{
+    say('正在载入……');
+  }
+  // 2) 后台从仓库拉最新版，成功后覆盖并回写缓存
   if(c.owner&&c.repo&&c.token){
     try{
       const info=await ghGet('data.json',c);
       const j=JSON.parse(unb64(info.content));
       chars=j.chars||[];
-      render();sayOnce('已从仓库载入 '+chars.length+' 个字。增删改会直接提交回仓库。');return;
-    }catch(e){/* 降级到同源文件 */}
+      cacheChars(j);
+      render();sayOnce('已从仓库载入 '+chars.length+' 个字。增删改会直接提交回仓库。');
+      return;
+    }catch(e){/* 后台同步失败时保留已渲染的缓存内容 */}
   }
+  if(cached&&cached.length)return; // 有缓存就别再走只读降级
+  // 3) 无缓存且无可用 API 时，退回同源只读文件
   try{
-    const r=await fetch('data.json',{cache:'no-store'});
+    const r=await fetch('data.json');
     if(!r.ok)throw 0;
     const j=await r.json();chars=j.chars||[];
-    render();
+    cacheChars(j);render();
     say('已载入 '+chars.length+' 个字（只读）。'+(c.token?'':'如需增删改，部署到 GitHub Pages 后自动可用，或在「设置」里填仓库与 PAT。'));
   }catch(e){
     chars=[];render();
@@ -230,7 +254,7 @@ function render(){
     const rows=TYPES.map(([k,lab])=>{
       const imgs=o[k]||[];
       const inner=imgs.length
-        ? imgs.map(it=>`<img src="${esc(imgSrc(it))}" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
+        ? imgs.map(it=>`<img src="${esc(imgSrc(it))}" loading="lazy" decoding="async" data-ch="${esc(o.char)}" alt="${lab}">`).join('')
         : '<span class="none">未收录</span>';
       return `<div class="row"><div class="lab"><span>${lab}</span><span>${imgs.length} 张</span></div><div class="thumbs">${inner}</div></div>`;
     }).join('');
@@ -252,7 +276,9 @@ document.addEventListener('error',e=>{
   const n=Number(im.dataset.retried||'0');
   if(n>=3)return;
   im.dataset.retried=String(n+1);
-  setTimeout(()=>{im.src=raw.split('?')[0]+'?t='+Date.now()},1200*(n+1));
+  const base=raw.split('?')[0];
+  const retry=(n===0)?base+'?r=1':base;
+  setTimeout(()=>{im.src=retry},1200*(n+1));
 },true);
 $('#search').addEventListener('input',render);
 $('#addBtn').onclick=()=>openEditor(null);
@@ -355,7 +381,7 @@ async function saveAll(){
       return r;
     })};
     await ghPut('data.json',c,b64(JSON.stringify(persisted,null,2)),'update 字帖索引',sha);
-    chars=next;render();
+    chars=next;cacheChars({chars:next});render();
     say('已提交到仓库，共 '+chars.length+' 个字。其他设备稍等 1~2 分钟（Pages 重新部署）即可看到。');
     return true;
   }catch(e){
@@ -374,17 +400,16 @@ $('#edSave').onclick=async()=>{
   if(i>=0)chars[i]=rec;else chars.push(rec);
   render();
   if(await saveAll()){$('#editor').classList.remove('show')}
-  else{chars=snap;render()}
+  else{chars=snap;cacheChars({chars:snap});render()}
 };
-$('#edDelete').onclick=async()=>{
+  $('#edDelete').onclick=async()=>{
   if(busy||!editing)return;
   if(!confirm('确定删除「'+editing+'」及其全部图片引用？'))return;
   const snap=clone(chars);
   chars=chars.filter(o=>o.char!==editing);render();
   if(await saveAll()){$('#editor').classList.remove('show')}
-  else{chars=snap;render()}
+  else{chars=snap;cacheChars({chars:snap});render()}
 };
-
 $('#reloadBtn').onclick=()=>{if(!busy)load()};
 function downloadJSON(obj,name){
   const b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
